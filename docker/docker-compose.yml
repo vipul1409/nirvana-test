@@ -9,6 +9,11 @@ services:
       - "5432:5432"
     volumes:
       - temporal-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   temporal:
     image: temporalio/auto-setup:1.24.2
@@ -20,7 +25,8 @@ services:
     ports:
       - "7233:7233"
     depends_on:
-      - postgresql
+      postgresql:
+        condition: service_healthy
 
   temporal-ui:
     image: temporalio/ui:2.26.2
