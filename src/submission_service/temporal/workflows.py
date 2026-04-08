@@ -13,14 +13,15 @@ from submission_service.models import (
     VehicleIngestionResult,
 )
 
-# Activity stubs — imported inside run() to satisfy Temporal's sandbox.
-# The workflow sandbox disallows I/O at module level; this pattern is the
-# recommended workaround in the Temporal Python SDK docs.
-with workflow.unsafe.sandbox_unrestricted():
+# Import activity functions using imports_passed_through so the sandbox
+# doesn't try to re-import their transitive dependencies (aiosqlite, httpx,
+# etc.) under restriction.  Must be at module level so the functions are
+# available as references for execute_activity / execute_child_workflow.
+with workflow.unsafe.imports_passed_through():
     from submission_service.temporal.activities import (
-        validate_connector,
-        finalize_submission,
         fetch_vehicle_telematics,
+        finalize_submission,
+        validate_connector,
     )
 
 
