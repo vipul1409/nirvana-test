@@ -1,0 +1,17 @@
+services:
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    environment:
+      - DB=sqlite
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:2.26.2
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - temporal
