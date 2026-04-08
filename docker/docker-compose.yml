@@ -19,6 +19,7 @@ services:
     image: temporalio/auto-setup:1.24.2
     environment:
       - DB=postgres12
+      - DB_PORT=5432
       - POSTGRES_USER=temporal
       - POSTGRES_PWD=temporal
       - POSTGRES_SEEDS=postgresql
