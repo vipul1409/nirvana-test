@@ -15,13 +15,15 @@ async def init_db() -> None:
     """Create tables if they don't exist. Idempotent. Runs additive migrations."""
     async with aiosqlite.connect(settings.db_path) as db:
         await db.executescript(SUBMISSION_DDL + TELEMATICS_RECORD_DDL)
-        # Additive migration: add samsara_api_token column if missing (existing DBs)
-        try:
-            await db.execute(
-                "ALTER TABLE submission ADD COLUMN samsara_api_token TEXT NOT NULL DEFAULT ''"
-            )
-        except Exception:
-            pass  # column already exists
+        # Additive migrations: add columns if missing (existing DBs)
+        for ddl in [
+            "ALTER TABLE submission ADD COLUMN samsara_api_token TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE submission ADD COLUMN workflow_id TEXT",
+        ]:
+            try:
+                await db.execute(ddl)
+            except Exception:
+                pass  # column already exists
         await db.commit()
 
 
@@ -80,14 +82,23 @@ async def update_submission_status(
     submission_id: str,
     status: str,
     coverage_pct: Optional[float] = None,
+    workflow_id: Optional[str] = None,
 ) -> None:
     async with aiosqlite.connect(settings.db_path) as db:
-        await db.execute(
-            """UPDATE submission
-               SET status = ?, coverage_pct = ?
-               WHERE id = ?""",
-            (status, coverage_pct, submission_id),
-        )
+        if workflow_id is not None:
+            await db.execute(
+                """UPDATE submission
+                   SET status = ?, coverage_pct = ?, workflow_id = ?
+                   WHERE id = ?""",
+                (status, coverage_pct, workflow_id, submission_id),
+            )
+        else:
+            await db.execute(
+                """UPDATE submission
+                   SET status = ?, coverage_pct = ?
+                   WHERE id = ?""",
+                (status, coverage_pct, submission_id),
+            )
         await db.commit()
 
 

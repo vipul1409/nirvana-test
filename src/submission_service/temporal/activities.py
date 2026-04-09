@@ -183,3 +183,13 @@ async def finalize_submission(result: FleetIngestionResult) -> None:
         status=status,
         coverage_pct=result.coverage_pct,
     )
+
+
+@activity.defn
+async def mark_submission_failed(submission_id: str) -> None:
+    """
+    Marks the submission FAILED. Called when the FleetIngestionWorkflow
+    fails before it can call finalize_submission (e.g. invalid token).
+    """
+    activity.logger.info("Marking submission %s as FAILED", submission_id)
+    await update_submission_status(submission_id=submission_id, status="FAILED")

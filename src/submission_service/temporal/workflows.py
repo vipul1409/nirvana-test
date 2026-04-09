@@ -22,6 +22,7 @@ with workflow.unsafe.imports_passed_through():
     from submission_service.temporal.activities import (
         fetch_vehicle_telematics,
         finalize_submission,
+        mark_submission_failed,
         validate_connector,
     )
 
@@ -49,72 +50,84 @@ class VehicleIngestionWorkflow:
 class FleetIngestionWorkflow:
     @workflow.run
     async def run(self, input: FleetIngestionInput) -> FleetIngestionResult:
-        # Step 1 — validate the Samsara API token before any other work.
-        # InvalidTokenError is non-retryable: a bad token won't fix itself.
-        await workflow.execute_activity(
-            validate_connector,
-            ConnectorInput(
-                submission_id=input.submission_id,
-                samsara_api_token=input.samsara_api_token,
-            ),
-            start_to_close_timeout=timedelta(seconds=30),
-            retry_policy=RetryPolicy(
-                maximum_attempts=2,
-                non_retryable_error_types=["InvalidTokenError"],
-            ),
-        )
-
-        # Step 2 — fan out one child workflow per VIN.
-        # Start all children before awaiting any, to maximise parallelism.
-        child_handles = []
-        for vin in input.vehicle_vins:
-            child_input = VehicleIngestionInput(
-                submission_id=input.submission_id,
-                vin=vin,
-                samsara_api_token=input.samsara_api_token,
-                start_date=input.start_date,
-                end_date=input.end_date,
+        try:
+            # Step 1 — validate the Samsara API token before any other work.
+            # InvalidTokenError is non-retryable: a bad token won't fix itself.
+            await workflow.execute_activity(
+                validate_connector,
+                ConnectorInput(
+                    submission_id=input.submission_id,
+                    samsara_api_token=input.samsara_api_token,
+                ),
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(
+                    maximum_attempts=2,
+                    non_retryable_error_types=["InvalidTokenError"],
+                ),
             )
-            handle = await workflow.start_child_workflow(
-                VehicleIngestionWorkflow,
-                child_input,
-                id=f"vehicle-ingest-{input.submission_id}-{vin}",
-                task_queue=workflow.info().task_queue,
-            )
-            child_handles.append((vin, handle))
 
-        # Step 3 — await all children; tolerate individual failures.
-        results: list[VehicleIngestionResult] = []
-        for vin, handle in child_handles:
-            try:
-                r: VehicleIngestionResult = await handle
-                results.append(r)
-            except ChildWorkflowError as exc:
-                results.append(
-                    VehicleIngestionResult(
-                        vin=vin,
-                        records_written=0,
-                        success=False,
-                        error_message=str(exc.cause),
-                    )
+            # Step 2 — fan out one child workflow per VIN.
+            # Start all children before awaiting any, to maximise parallelism.
+            child_handles = []
+            for vin in input.vehicle_vins:
+                child_input = VehicleIngestionInput(
+                    submission_id=input.submission_id,
+                    vin=vin,
+                    samsara_api_token=input.samsara_api_token,
+                    start_date=input.start_date,
+                    end_date=input.end_date,
                 )
+                handle = await workflow.start_child_workflow(
+                    VehicleIngestionWorkflow,
+                    child_input,
+                    id=f"vehicle-ingest-{workflow.info().workflow_id}-{vin}",
+                    task_queue=workflow.info().task_queue,
+                )
+                child_handles.append((vin, handle))
 
-        # Step 4 — compute coverage and finalise.
-        successful = [r for r in results if r.success]
-        coverage = len(successful) / len(results) if results else 0.0
+            # Step 3 — await all children; tolerate individual failures.
+            results: list[VehicleIngestionResult] = []
+            for vin, handle in child_handles:
+                try:
+                    r: VehicleIngestionResult = await handle
+                    results.append(r)
+                except ChildWorkflowError as exc:
+                    results.append(
+                        VehicleIngestionResult(
+                            vin=vin,
+                            records_written=0,
+                            success=False,
+                            error_message=str(exc.cause),
+                        )
+                    )
 
-        fleet_result = FleetIngestionResult(
-            submission_id=input.submission_id,
-            total_vehicles=len(results),
-            successful_vehicles=len(successful),
-            failed_vehicles=len(results) - len(successful),
-            coverage_pct=coverage,
-        )
+            # Step 4 — compute coverage and finalise.
+            successful = [r for r in results if r.success]
+            coverage = len(successful) / len(results) if results else 0.0
 
-        await workflow.execute_activity(
-            finalize_submission,
-            fleet_result,
-            start_to_close_timeout=timedelta(seconds=30),
-        )
+            fleet_result = FleetIngestionResult(
+                submission_id=input.submission_id,
+                total_vehicles=len(results),
+                successful_vehicles=len(successful),
+                failed_vehicles=len(results) - len(successful),
+                coverage_pct=coverage,
+            )
 
-        return fleet_result
+            await workflow.execute_activity(
+                finalize_submission,
+                fleet_result,
+                start_to_close_timeout=timedelta(seconds=30),
+            )
+
+            return fleet_result
+
+        except Exception:
+            # Workflow failed before finalize_submission could run (e.g. invalid
+            # token). Update the submission row so it doesn't stay at INGESTING.
+            await workflow.execute_activity(
+                mark_submission_failed,
+                input.submission_id,
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(maximum_attempts=3),
+            )
+            raise

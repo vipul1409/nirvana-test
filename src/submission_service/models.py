@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS submission (
     coverage_pct        REAL,
     vehicle_vins        TEXT NOT NULL,
     samsara_api_token   TEXT NOT NULL DEFAULT '',
+    workflow_id         TEXT,
     created_at          TEXT NOT NULL,
     sla_deadline_at     TEXT NOT NULL
 );

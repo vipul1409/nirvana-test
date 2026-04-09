@@ -11,6 +11,7 @@ from submission_service.temporal.activities import (
     discover_fleet,
     fetch_vehicle_telematics,
     finalize_submission,
+    mark_submission_failed,
     validate_connector,
 )
 from submission_service.temporal.workflows import (
@@ -34,6 +35,7 @@ async def run_worker() -> None:
             discover_fleet,
             fetch_vehicle_telematics,
             finalize_submission,
+            mark_submission_failed,
         ],
     )
     print(f"Worker started on task queue '{settings.temporal_task_queue}'")

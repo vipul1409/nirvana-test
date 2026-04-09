@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException
 
 from submission_service.config import settings
@@ -46,7 +48,9 @@ async def trigger_ingestion(submission_id: str) -> dict:
     if row is None:
         raise HTTPException(status_code=404, detail="Submission not found")
 
-    workflow_id = f"ingest-{submission_id}"
+    # Use a timestamp suffix so each trigger gets a unique workflow ID.
+    # Reusing the same ID would silently attach to a still-running workflow.
+    workflow_id = f"ingest-{submission_id}-{int(time.time())}"
 
     client = await get_temporal_client()
     handle = await client.start_workflow(
@@ -63,7 +67,7 @@ async def trigger_ingestion(submission_id: str) -> dict:
         task_queue=settings.temporal_task_queue,
     )
 
-    await update_submission_status(submission_id, "INGESTING")
+    await update_submission_status(submission_id, "INGESTING", workflow_id=handle.id)
 
     return {
         "submission_id": submission_id,
