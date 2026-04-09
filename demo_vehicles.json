@@ -1,0 +1,72 @@
+[
+  {
+    "id": "samsara-v-0001",
+    "vin": "1DEMO000000000001",
+    "name": "Honda Civic #1",
+    "profile": "low_risk",
+    "has_missing_data": false
+  },
+  {
+    "id": "samsara-v-0002",
+    "vin": "1DEMO000000000002",
+    "name": "Freightliner Cascadia #2",
+    "profile": "truck",
+    "has_missing_data": false
+  },
+  {
+    "id": "samsara-v-0003",
+    "vin": "1DEMO000000000003",
+    "name": "Tesla Model 3 #3",
+    "profile": "ev",
+    "has_missing_data": false
+  },
+  {
+    "id": "samsara-v-0004",
+    "vin": "1DEMO000000000004",
+    "name": "Honda Civic #4",
+    "profile": "low_risk",
+    "has_missing_data": false
+  },
+  {
+    "id": "samsara-v-0005",
+    "vin": "1DEMO000000000005",
+    "name": "Freightliner Cascadia #5",
+    "profile": "truck",
+    "has_missing_data": false
+  },
+  {
+    "id": "samsara-v-0006",
+    "vin": "1DEMO000000000006",
+    "name": "Tesla Model 3 #6",
+    "profile": "ev",
+    "has_missing_data": false
+  },
+  {
+    "id": "samsara-v-0007",
+    "vin": "1DEMO000000000007",
+    "name": "Honda Civic #7",
+    "profile": "low_risk",
+    "has_missing_data": false
+  },
+  {
+    "id": "samsara-v-0008",
+    "vin": "1DEMO000000000008",
+    "name": "Freightliner Cascadia #8",
+    "profile": "truck",
+    "has_missing_data": false
+  },
+  {
+    "id": "samsara-v-0009",
+    "vin": "1DEMO000000000009",
+    "name": "Tesla Model 3 #9",
+    "profile": "ev",
+    "has_missing_data": true
+  },
+  {
+    "id": "samsara-v-0010",
+    "vin": "1DEMO000000000010",
+    "name": "Honda Civic #10",
+    "profile": "low_risk",
+    "has_missing_data": true
+  }
+]

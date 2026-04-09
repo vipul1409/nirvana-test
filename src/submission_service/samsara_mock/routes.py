@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import base64
 from datetime import date
-
-from fastapi import APIRouter, Header, HTTPException, Query
 from typing import Optional
 
+from fastapi import APIRouter, Header, HTTPException, Query, Request
+
 from submission_service.config import settings
-from submission_service.samsara_mock.data_generator import ALL_DATA, VEHICLES
 
 router = APIRouter()
 
@@ -28,11 +27,12 @@ def _require_auth(authorization: Optional[str]) -> None:
 
 @router.get("/fleet/vehicles")
 async def list_vehicles(
+    request: Request,
     limit: Optional[int] = Query(default=None),
     authorization: Optional[str] = Header(default=None),
 ) -> dict:
     _require_auth(authorization)
-    return {"vehicles": VEHICLES}
+    return {"vehicles": request.app.state.vehicles}
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +41,7 @@ async def list_vehicles(
 
 @router.get("/fleet/vehicles/stats")
 async def get_vehicle_stats(
+    request: Request,
     vin: str = Query(...),
     start_date: str = Query(...),
     end_date: str = Query(...),
@@ -57,14 +58,15 @@ async def get_vehicle_stats(
             headers={"Retry-After": "5"},
         )
 
-    if vin not in ALL_DATA:
+    all_data: dict = request.app.state.all_data
+    if vin not in all_data:
         raise HTTPException(status_code=404, detail=f"VIN {vin!r} not found")
 
     # Filter records to requested date range
     start = date.fromisoformat(start_date)
     end = date.fromisoformat(end_date)
     all_records = [
-        r for r in ALL_DATA[vin]
+        r for r in all_data[vin]
         if start <= date.fromisoformat(r["date"]) <= end
     ]
 
