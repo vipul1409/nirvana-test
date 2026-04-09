@@ -7,6 +7,7 @@ from temporalio.common import RetryPolicy
 from temporalio.exceptions import ChildWorkflowError
 
 from submission_service.models import (
+    ConnectorInput,
     FleetIngestionInput,
     FleetIngestionResult,
     VehicleIngestionInput,
@@ -48,19 +49,22 @@ class VehicleIngestionWorkflow:
 class FleetIngestionWorkflow:
     @workflow.run
     async def run(self, input: FleetIngestionInput) -> FleetIngestionResult:
-        # Step 1 — validate Samsara credentials
-        is_valid: bool = await workflow.execute_activity(
+        # Step 1 — validate the Samsara API token before any other work.
+        # InvalidTokenError is non-retryable: a bad token won't fix itself.
+        await workflow.execute_activity(
             validate_connector,
-            input.samsara_api_token,
+            ConnectorInput(
+                submission_id=input.submission_id,
+                samsara_api_token=input.samsara_api_token,
+            ),
             start_to_close_timeout=timedelta(seconds=30),
-            retry_policy=RetryPolicy(maximum_attempts=2),
+            retry_policy=RetryPolicy(
+                maximum_attempts=2,
+                non_retryable_error_types=["InvalidTokenError"],
+            ),
         )
-        if not is_valid:
-            raise workflow.ApplicationError(
-                "Invalid Samsara API token", non_retryable=True
-            )
 
-        # Step 2 — fan out one child workflow per VIN
+        # Step 2 — fan out one child workflow per VIN.
         # Start all children before awaiting any, to maximise parallelism.
         child_handles = []
         for vin in input.vehicle_vins:
@@ -79,7 +83,7 @@ class FleetIngestionWorkflow:
             )
             child_handles.append((vin, handle))
 
-        # Step 3 — await all children; tolerate individual failures
+        # Step 3 — await all children; tolerate individual failures.
         results: list[VehicleIngestionResult] = []
         for vin, handle in child_handles:
             try:
@@ -95,7 +99,7 @@ class FleetIngestionWorkflow:
                     )
                 )
 
-        # Step 4 — compute coverage and finalise
+        # Step 4 — compute coverage and finalise.
         successful = [r for r in results if r.success]
         coverage = len(successful) / len(results) if results else 0.0
 

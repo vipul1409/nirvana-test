@@ -41,6 +41,12 @@ class IngestResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @dataclass
+class ConnectorInput:
+    submission_id: str
+    samsara_api_token: str
+
+
+@dataclass
 class FleetIngestionInput:
     submission_id: str
     account_id: str
