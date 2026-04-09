@@ -6,6 +6,7 @@ from datetime import date
 from fastapi import APIRouter, Header, HTTPException, Query
 from typing import Optional
 
+from submission_service.config import settings
 from submission_service.samsara_mock.data_generator import ALL_DATA, VEHICLES
 
 router = APIRouter()
@@ -15,7 +16,10 @@ _PAGE_SIZE = 90  # days per page
 
 def _require_auth(authorization: Optional[str]) -> None:
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    token = authorization.removeprefix("Bearer ").strip()
+    if token not in settings.samsara_mock_api_keys:
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 # ---------------------------------------------------------------------------

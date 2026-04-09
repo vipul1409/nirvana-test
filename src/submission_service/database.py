@@ -12,9 +12,16 @@ from submission_service.models import SUBMISSION_DDL, TELEMATICS_RECORD_DDL
 
 
 async def init_db() -> None:
-    """Create tables if they don't exist. Idempotent."""
+    """Create tables if they don't exist. Idempotent. Runs additive migrations."""
     async with aiosqlite.connect(settings.db_path) as db:
         await db.executescript(SUBMISSION_DDL + TELEMATICS_RECORD_DDL)
+        # Additive migration: add samsara_api_token column if missing (existing DBs)
+        try:
+            await db.execute(
+                "ALTER TABLE submission ADD COLUMN samsara_api_token TEXT NOT NULL DEFAULT ''"
+            )
+        except Exception:
+            pass  # column already exists
         await db.commit()
 
 
@@ -23,6 +30,7 @@ async def create_submission(
     account_id: str,
     product_line: str,
     vehicle_vins: list[str],
+    samsara_api_token: str,
     submission_id: Optional[str] = None,
 ) -> dict:
     now = datetime.now(timezone.utc)
@@ -35,6 +43,7 @@ async def create_submission(
         "status": "PENDING",
         "coverage_pct": None,
         "vehicle_vins": json.dumps(vehicle_vins),
+        "samsara_api_token": samsara_api_token,
         "created_at": now.isoformat(),
         "sla_deadline_at": (now + timedelta(minutes=30)).isoformat(),
     }
@@ -42,9 +51,9 @@ async def create_submission(
         await db.execute(
             """INSERT OR IGNORE INTO submission
                (id, agent_id, account_id, product_line, status, vehicle_vins,
-                created_at, sla_deadline_at)
+                samsara_api_token, created_at, sla_deadline_at)
                VALUES (:id, :agent_id, :account_id, :product_line, :status,
-                       :vehicle_vins, :created_at, :sla_deadline_at)""",
+                       :vehicle_vins, :samsara_api_token, :created_at, :sla_deadline_at)""",
             row,
         )
         await db.commit()

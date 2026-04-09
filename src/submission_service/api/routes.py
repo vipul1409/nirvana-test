@@ -10,7 +10,6 @@ from submission_service.database import (
 )
 from submission_service.models import (
     FleetIngestionInput,
-    IngestRequest,
     IngestResponse,
     SubmissionCreate,
     SubmissionResponse,
@@ -28,6 +27,7 @@ async def create_submission_endpoint(body: SubmissionCreate) -> dict:
         account_id=body.account_id,
         product_line=body.product_line,
         vehicle_vins=body.vehicle_vins,
+        samsara_api_token=body.samsara_api_token,
     )
     return row
 
@@ -41,7 +41,7 @@ async def get_submission_endpoint(submission_id: str) -> dict:
 
 
 @router.post("/submissions/{submission_id}/ingest", response_model=IngestResponse)
-async def trigger_ingestion(submission_id: str, body: IngestRequest) -> dict:
+async def trigger_ingestion(submission_id: str) -> dict:
     row = await get_submission(submission_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Submission not found")
@@ -54,7 +54,7 @@ async def trigger_ingestion(submission_id: str, body: IngestRequest) -> dict:
         FleetIngestionInput(
             submission_id=submission_id,
             account_id=row["account_id"],
-            samsara_api_token=body.samsara_api_token,
+            samsara_api_token=row["samsara_api_token"],
             vehicle_vins=row["vehicle_vins"],
             start_date="2024-01-01",
             end_date="2024-12-31",

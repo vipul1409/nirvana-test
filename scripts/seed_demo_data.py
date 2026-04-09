@@ -31,6 +31,7 @@ async def seed() -> None:
         account_id="acme-fleet-corp",
         product_line="commercial_auto",
         vehicle_vins=DEMO_VINS,
+        samsara_api_token="demo-token-abc123",
         submission_id=DEMO_SUBMISSION_ID,
     )
     print(f"Created demo submission: {DEMO_SUBMISSION_ID}")

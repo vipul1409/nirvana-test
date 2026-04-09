@@ -14,6 +14,7 @@ class SubmissionCreate(BaseModel):
     account_id: str
     product_line: str = "commercial_auto"
     vehicle_vins: list[str]
+    samsara_api_token: str  # required — validated against mock on ingest
 
 
 class SubmissionResponse(BaseModel):
@@ -26,10 +27,7 @@ class SubmissionResponse(BaseModel):
     vehicle_vins: list[str]
     created_at: str
     sla_deadline_at: str
-
-
-class IngestRequest(BaseModel):
-    samsara_api_token: str = "demo-token-abc123"
+    # token intentionally omitted from response
 
 
 class IngestResponse(BaseModel):
@@ -84,15 +82,16 @@ class FleetIngestionResult:
 
 SUBMISSION_DDL = """
 CREATE TABLE IF NOT EXISTS submission (
-    id              TEXT PRIMARY KEY,
-    agent_id        TEXT NOT NULL,
-    account_id      TEXT NOT NULL,
-    product_line    TEXT NOT NULL DEFAULT 'commercial_auto',
-    status          TEXT NOT NULL DEFAULT 'PENDING',
-    coverage_pct    REAL,
-    vehicle_vins    TEXT NOT NULL,
-    created_at      TEXT NOT NULL,
-    sla_deadline_at TEXT NOT NULL
+    id                  TEXT PRIMARY KEY,
+    agent_id            TEXT NOT NULL,
+    account_id          TEXT NOT NULL,
+    product_line        TEXT NOT NULL DEFAULT 'commercial_auto',
+    status              TEXT NOT NULL DEFAULT 'PENDING',
+    coverage_pct        REAL,
+    vehicle_vins        TEXT NOT NULL,
+    samsara_api_token   TEXT NOT NULL DEFAULT '',
+    created_at          TEXT NOT NULL,
+    sla_deadline_at     TEXT NOT NULL
 );
 """
 
