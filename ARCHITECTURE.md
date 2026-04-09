@@ -4,7 +4,7 @@
 
 I'm building the **Submission & Ingestion** layer of the Underwriting Decision Engine. The flow:
 
-1. Agent submits an insurance application (vehicles, drivers, fleet info).
+1. Agent submits an insurance application (fleet info).
 2. We collect telematics connector credentials (Samsara API token) for the account.
 3. We schedule a **bulk ingestion job** that pulls full telematics history for every vehicle in that fleet.
 4. Once ingestion completes, the submission advances to risk scoring.
@@ -18,20 +18,14 @@ The core engineering challenge is fanout: 1,000 vehicles × 24 months of daily d
 
 ### Decision 1: Temporal as the Workflow Engine — What It Replaces and Why
 
-**What Temporal gives us that we'd otherwise build by hand:**
+**What Temporal gives us that we'd otherwise build by ourself:**
 - **Durable execution**: If a worker crashes mid-ingestion at vehicle #437, Temporal replays the workflow from the last checkpoint. The 436 completed vehicles aren't re-processed. We get resumability without building our own checkpointing.
 - **Retries with backoff**: Per-activity retry policies (max attempts, backoff intervals, non-retryable error types) are declarative config, not custom code.
 - **Timeouts at every level**: Workflow-level timeout (overall SLA), activity-level timeout (single Samsara API call), heartbeat timeout (detect stuck workers). All built-in.
 - **Fan-out with completion tracking**: Child workflows for per-vehicle ingestion, with the parent automatically tracking how many completed/failed — replacing the reconciler entirely.
 - **Visibility**: Temporal's UI shows every running/completed/failed workflow, what step it's on, what failed and why. This replaces a custom observability dashboard for job tracking.
-- **Cron scheduling**: Recurring refresh jobs are a native Temporal cron schedule — no external scheduler needed.
+- **Cron scheduling**: Recurring refresh jobs are a native Temporal cron schedule — no external scheduler needed. This is not built yet but can be added easily.
 
-**What Temporal does NOT replace** (we still build these):
-- Submission API and data model
-- Connector credential vault
-- Samsara API client and rate limiter
-- Telematics data store
-- Raw payload audit storage
 
 **Tradeoff I'm accepting**: Temporal is an operational dependency — it needs to be deployed, monitored, and maintained (or hosted via Temporal Cloud). This is real overhead for a small team. I'm accepting it because the alternative is building a version of Temporal ourselves: the reconciler, task state table, retry logic, and cron scheduler are collectively ~60% of what Temporal provides, but without the durability guarantees.
 
@@ -111,7 +105,7 @@ Implemented as middleware in the Samsara API client, not in the workflow logic. 
                      └──────────────────┘     │   ├ VehicleIngestionWorkflow ×N │
                                                │   │  └ FetchVehicleTelematics  │
                      ┌──────────────────┐     │   ├ FinalizeSubmission          │
-                     │  Connector Vault │◀────│   └ Schedule refresh cron       │
+                     │  Connector Vault │◀────│   └ Schedule refresh cron (TBD)      │
                      │  (encrypted)     │     │                                 │
                      └──────────────────┘     └──────────┬──────────────────────┘
                                                           │
@@ -148,10 +142,6 @@ Implemented as middleware in the Samsara API client, not in the workflow logic. 
     — indexed on (vin, recorded_at)
     — partitioned by recorded_at (monthly)
 ```
-
-**What's NOT in our database anymore**: `ingestion_job` and `ingestion_task` tables are gone. Temporal owns that state — every workflow execution, its status, child workflow results, retry attempts, and timing are queryable via Temporal's visibility APIs. We don't duplicate that tracking in our own database.
-
-**What we keep**: Submission data (our domain), connector credentials (security boundary), telematics records (query-optimized data store). Temporal is the orchestration layer, not the data layer.
 
 ---
 

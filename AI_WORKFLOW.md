@@ -1,4 +1,8 @@
-# Build Session Summary
+# Design Session Workflow
+
+I have used claude for building the e2e product. Iniitally started used it to summarise the task, help me understand key focus area and iterated over the design, designing via claude was not great and I had to iterate multiple times for same esp. around what areas to focus on (may be starting with a template may have helpe more).
+
+## Build Session Summary
 
 1. Initialized a git repository and read `ARCHITECTURE.md` to understand the fleet telematics ingestion problem before writing any code.
 2. Planned and built a Python prototype using FastAPI, Temporal, aiosqlite, and httpx — chosen for speed of development and strong async support.
